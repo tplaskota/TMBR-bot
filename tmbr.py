@@ -1,6 +1,7 @@
 import praw
 from pprint import pprint
 from prawoauth2 import PrawOAuth2Mini
+import time
 
 from peewee import *
 from peewee import OperationalError
@@ -13,9 +14,9 @@ reddit_client = praw.Reddit(user_agent=user_agent)
 oauth_helper = PrawOAuth2Mini(reddit_client,app_key=app_key,app_secret=app_secret,access_token=access_token,scopes=scopes,refresh_token=refresh_token)
 db = SqliteDatabase('db/tmbr.db')
 replied_comments = []
-bot_comments_with_counter = []
 counting_submissions = []
 last_checked_comment = []
+active_submissions = []
 
 response_head = "Hi!\n\n"
 response_tail = "\n\n-------------------------------------------------\n\n^^I ^^am ^^a ^^bot. ^^You ^^can ^^complain ^^to ^^my ^^master ^^/u/Terdol ^^or ^^mods ^^at ^^/r/TMBR"
@@ -30,6 +31,7 @@ class CountingSubmission(Model):
         database = db
     
 def initialize_db():
+	global db
     db.connect()
     try:
         db.create_tables([CountingSubmission,])
@@ -37,9 +39,11 @@ def initialize_db():
         pass
 
 def deinit():
+	global db
     db.close()
 
 def log_this_comment(comment, TableName=CountingSubmission):
+	global counting_submissions
     comment_data = TableName(bot_comment_id=comment.id,
                              author=comment.author.name,
                              submission_id=comment.parent_id[3:], subreddit=comment.subreddit.display_name)
@@ -47,6 +51,7 @@ def log_this_comment(comment, TableName=CountingSubmission):
     counting_submissions.append(comment.parent_id[3:])
     
 def already_has_bot_comment(submission_id):
+	global counting_submissions
     if submission_id in counting_submissions:
         return True
     try:
@@ -69,6 +74,7 @@ def counter_table(a,b,c):
     return result
 
 def make_new_comment(_submission_id,a=0,b=0,c=0,TableName=CountingSubmission):
+	global reddit_client
     sub = reddit_client.get_submission(submission_id=_submission_id)
     response = response_head + counter_table(a,b,c) + response_tail
     comment = sub.add_comment(response)
@@ -98,39 +104,49 @@ def remove_downvoted():
         if c.score<0:
             c.delete()
 
-
-def main_loop():
-    #for c in praw.helpers.comment_stream(reddit_client, 'TMBR'):
-    #    if 'text' not in c.body.lower():
-    #        continue
-    #    if c.author.name == bot_name:
-    #        continue
-    #    if is_already_replied(c.id):
-    #        continue
-    #    response = response_head + c.body + response_tail
-    #    log_this_comment(c)
-    #    c.reply(response)
-
+def recalculate_active_submissions():
+	global reddit_client
+	global active_submissions
+	a=0, b=0, c=0
+	for id in active_submissions:
+		sub = reddit_client.get_submission(submission_id=id)
+		sub.replace_more_comments(limit=None,treshold=1)
+		bot_comment = None
+		flat_comments = praw.helper.flatten_tree(sub.comments)
+		for com in flat_comments:
+			if c.author.name == bot_name:
+				bot_comment = com
+				continue
+			if '!agree' in c.body.lower():
+				a += 1
+			if '!disagree' in c.body.lower():
+				b += 1
+			if '!undecided' in c.body.lower():
+				c += 1
+		edit_comment(com,a,b,c)
+	active_submissions = []
+			
+def scan_comments_for_activity():
+	global reddit_client
     for c in reddit_client.get_comments('TMBR'):
         if '!agree' not in c.body.lower() and '!disagree' not in c.body.lower() and '!undecided' not in c.body.lower():
             continue
         if c.author.name == bot_name:
-            if not comment_is_assigned(c):
-                try_to_assign_comment(c)
-            continue
-        if is_already_replied(c.id):
             continue
         if not already_has_bot_comment(c.link_id[3:]):
             make_new_comment(c.link_id[3:])
-        #update_submission_counter(c.link_id[3:])
-        print('\n')
-        #pprint.pprint(vars(c))
+		active_submissions.append(c.link_id[3:])
+
+def main_loop():
+	while True:
+		scan_comments_for_activity()
+		recalculate_active_submissions()
+		remove_downvoted()
+		time.sleep(600)
+    
         
 if __name__ == '__main__':
     oauth_helper.refresh(force=True)
     initialize_db()
-    i = 0
-    #while True:
-        
-    main_loop()
+	main_loop()
     deinit()
