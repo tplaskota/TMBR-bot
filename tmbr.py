@@ -6,8 +6,8 @@ from peewee import *
 from peewee import OperationalError
 from peewee import DoesNotExist
 
-from tokens import app_key, app_secret, access_token, refresh_token
-from settings import scopes, user_agent, bot_name
+from tmbr_tokens import app_key, app_secret, access_token, refresh_token
+from tmbr_settings import scopes, user_agent, bot_name
 
 reddit_client = praw.Reddit(user_agent=user_agent)
 oauth_helper = PrawOAuth2Mini(reddit_client,app_key=app_key,app_secret=app_secret,access_token=access_token,scopes=scopes,refresh_token=refresh_token)
@@ -18,7 +18,7 @@ counting_submissions = []
 last_checked_comment = []
 
 response_head = "Hi!\n\n"
-response_tail = "\n\n-------------------------------------------------\n\n^^I ^^am ^^a ^^bot. ^^You ^^can ^^complain ^^to ^^my ^^master ^^/u/Terdol ^^or ^^provide ^^feedback ^^at ^^/r/TerdolBot"
+response_tail = "\n\n-------------------------------------------------\n\n^^I ^^am ^^a ^^bot. ^^You ^^can ^^complain ^^to ^^my ^^master ^^/u/Terdol ^^or ^^mods ^^at ^^/r/TMBR"
 
 class RepliedComments(Model):
     comment_id = CharField()
@@ -71,15 +71,17 @@ def already_has_bot_comment(submission_id):
         return True
     except DoesNotExist:
         return False
-		
-def counter_table(a,b):
-	result = ''
-	result += 'COUNTER   |          |\n'
-	result += '----------|----------|\n'
-	result += 'agree     |'
-	result += ' '*(10-len(str(a)))+str(a)+'|\n'
-	result += 'disagree  |'
-	result += ' '*(10-len(str(b)))+str(b)+'|\n'
+        
+def counter_table(a,b,c):
+    result = ''
+    result += 'COUNTER   |          |\n'
+    result += '----------|----------|\n'
+    result += 'agree     |'
+    result += ' '*(10-len(str(a)))+str(a)+'|\n'
+    result += 'disagree  |'
+    result += ' '*(10-len(str(b)))+str(b)+'|\n'
+    result += 'undecided |'
+    result += ' '*(10-len(str(b)))+str(c)+'|\n'
 
 def make_new_comment(_submission_id,TableName=CountingSubmission):
     submission_data = TableName(submission_id=_submission_id,
@@ -89,7 +91,7 @@ def make_new_comment(_submission_id,TableName=CountingSubmission):
     submission = reddit_client.get_submission(submission_id=_submission_id)
     #pprint.pprint(vars(submission))
     #pprint.pprint(dir(submission))
-	submission.add_comment()
+    submission.add_comment()
 
 def check_condition(c):
     if "meme" in c.body.lower():
@@ -101,9 +103,6 @@ def check_condition(c):
 
 def bot_action(c):
     print(c.body)
-
-def post_to_terdolbot(c):
-    c.reply(response_head + c.body + response_tail)
     
 def clear_subreddit(sub):
     for c in reddit_client.get_comments(sub):
@@ -116,35 +115,25 @@ def remove_downvoted():
     for c in bot_name.get_comments(limit=None):
         if c.score<0:
             c.delete()
-			
+            
 def comment_is_assigned(c):
-	try:
-		s = CountingSubmission.select().where(
+    try:
+        s = CountingSubmission.select().where(
             CountingSubmission.submission_id == c.link_id[3:]).get()
-		return s.bot_comment_id != '0'
+        return s.bot_comment_id != '0'
     except DoesNotExist:
         return False
-		
+        
 
 def try_to_assign_comment(c):
-	
+    pass
     
 def deal_with_submissions():
     pass
 
 def main_loop():
-    #for c in praw.helpers.comment_stream(reddit_client, 'dota2'):
-    #    if check_condition(c):
-    #        bot_action(c)
-    #        for c in dir(c):
-    #            print(c)
-    #        break
-    #  
-    #for c in praw.helpers.comment_stream(reddit_client, 'terdolbot'):
-    #    if check_condition(c):
-    #        post_to_terdolbot(c)
     #for c in praw.helpers.comment_stream(reddit_client, 'TMBR'):
-    #    if 'meme' not in c.body.lower():
+    #    if 'text' not in c.body.lower():
     #        continue
     #    if c.author.name == bot_name:
     #        continue
@@ -153,13 +142,14 @@ def main_loop():
     #    response = response_head + c.body + response_tail
     #    log_this_comment(c)
     #    c.reply(response)
+
     for c in reddit_client.get_comments('TMBR'):
-        if 'agree' not in c.body.lower() and 'disagree' not in c.body.lower():
+        if '!agree' not in c.body.lower() and '!disagree' not in c.body.lower() and '!undecided' not in c.body.lower():
             continue
         if c.author.name == bot_name:
-			if not comment_is_assigned(c):
-				try_to_assign_comment(c)
-			continue
+            if not comment_is_assigned(c):
+                try_to_assign_comment(c)
+            continue
         if is_already_replied(c.id):
             continue
         if not already_has_bot_comment(c.link_id[3:]):
@@ -171,10 +161,8 @@ def main_loop():
 if __name__ == '__main__':
     oauth_helper.refresh(force=True)
     initialize_db()
-    #clear_subreddit('terdolbot')
     i = 0
     #while True:
         
     main_loop()
     deinit()
-    #clear_terdolbot()
