@@ -8,12 +8,12 @@ from peewee import OperationalError
 from peewee import DoesNotExist
 
 from tokens import app_key, app_secret, access_token, refresh_token
-from settings import scopes, user_agent, bot_name
+from settings import scopes, user_agent, bot_name, bot_password
 
 reddit_client = praw.Reddit(user_agent=user_agent)
 oauth_helper = PrawOAuth2Mini(reddit_client,app_key=app_key,app_secret=app_secret,access_token=access_token,scopes=scopes,refresh_token=refresh_token)
+reddit_client.login(bot_name,bot_password)
 db = SqliteDatabase('db/tmbr.db')
-replied_comments = []
 counting_submissions = []
 last_checked_comment = []
 active_submissions = []
@@ -50,8 +50,9 @@ def log_this_comment(comment, TableName=CountingSubmission):
     comment_data.save()
     counting_submissions.append(comment.parent_id[3:])
     
-def already_has_bot_comment(submission_id):
+def already_has_bot_comment(submission_id, only_db=False):
 	global counting_submissions
+	global reddit_client
     if submission_id in counting_submissions:
         return True
     try:
@@ -59,7 +60,16 @@ def already_has_bot_comment(submission_id):
             CountingSubmission.submission_id == submission_id).get()
         return True
     except DoesNotExist:
-        return False
+		if only_db:
+			return False
+	sub = reddit_client.get_submission(submission_id=submission_id)
+	sub.replace_more_comments(limit=None,treshold=1)
+	comm = praw.helper.flatten_tree(sub.comments)
+	for c in comm:
+		if c.author.name == bot_name:
+			log_this_comment(c)
+			break
+		
         
 def counter_table(a,b,c):
     result = ''
@@ -78,6 +88,8 @@ def make_new_comment(_submission_id,a=0,b=0,c=0,TableName=CountingSubmission):
     sub = reddit_client.get_submission(submission_id=_submission_id)
     response = response_head + counter_table(a,b,c) + response_tail
     comment = sub.add_comment(response)
+	#sticky - requires login on mod
+	#comment.distinguish(sticky=True)
     log_this_comment(comment)
 
 def edit_comment(comment,a=0,b=0,c=0):
