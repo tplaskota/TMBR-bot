@@ -18,7 +18,7 @@ counting_submissions = []
 last_checked_comment = []
 active_submissions = []
 
-response_head = "Hi!\n\n"
+response_head = ""
 response_tail = "\n\n-------------------------------------------------\n\n^^I ^^am ^^a ^^bot. ^^You ^^can ^^complain ^^to ^^my ^^master ^^/u/Terdol ^^or ^^mods ^^at ^^/r/TMBR"
         
 class CountingSubmission(Model):
