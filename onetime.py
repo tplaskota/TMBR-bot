@@ -8,7 +8,8 @@
 import praw
 from prawoauth2 import PrawOAuth2Server
 
-from settings import user_agent, scopes, app_key, app_secret
+from settings import user_agent, scopes
+from tokens import app_key, app_secret
 
 reddit_client = praw.Reddit(user_agent=user_agent)
 oauthserver = PrawOAuth2Server(reddit_client, app_key=app_key,
