@@ -18,5 +18,6 @@ oauthserver = PrawOAuth2Server(reddit_client, app_key=app_key,
 
 # start the server, this will open default web browser
 # asking you to authenticate
-oauthserver.start()
-print(oauthserver.get_access_codes())
+if __name__=='__main__':
+	oauthserver.start()
+	print(oauthserver.get_access_codes())
