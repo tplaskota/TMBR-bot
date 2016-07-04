@@ -12,7 +12,7 @@ from settings import scopes, user_agent, bot_name, bot_password
 
 reddit_client = praw.Reddit(user_agent=user_agent)
 oauth_helper = PrawOAuth2Mini(reddit_client,app_key=app_key,app_secret=app_secret,access_token=access_token,scopes=scopes,refresh_token=refresh_token)
-#reddit_client.login(bot_name,bot_password,disable_warning=True)
+reddit_client.login(bot_name,bot_password,disable_warning=True)
 db = SqliteDatabase('db/tmbr.db')
 counting_submissions = []
 last_checked_comment = []
@@ -66,8 +66,8 @@ def already_has_bot_comment(submission_id, only_db=False):
         if only_db:
             return False
     sub = reddit_client.get_submission(submission_id=submission_id)
-    sub.replace_more_comments(limit=None,threshold=1)
-    comm = praw.helpers.flatten_tree(sub.comments)
+    sub.replace_more_comments(limit=None,treshold=1)
+    comm = praw.helper.flatten_tree(sub.comments)
     for c in comm:
         if c.author.name == bot_name:
             log_this_comment(c)
@@ -115,7 +115,7 @@ def clear_subreddit(sub):
     q.execute()
     
 def remove_downvoted():
-    for c in reddit_client.get_redditor(bot_name).get_comments(limit=None):
+    for c in bot_name.get_comments(limit=None):
         if c.score<0:
             c.delete()
 
@@ -127,20 +127,20 @@ def recalculate_active_submissions():
     c=0
     for id in active_submissions:
         sub = reddit_client.get_submission(submission_id=id)
-        sub.replace_more_comments(limit=None,threshold=1)
+        sub.replace_more_comments(limit=None,treshold=1)
         bot_comment = None
-        flat_comments = praw.helpers.flatten_tree(sub.comments)
+        flat_comments = praw.helper.flatten_tree(sub.comments)
         for com in flat_comments:
-            if com.author.name == bot_name:
+            if c.author.name == bot_name:
                 bot_comment = com
                 continue
-            if '!agree' in com.body.lower():
+            if '!agree' in c.body.lower():
                 a += 1
-            if '!disagree' in com.body.lower():
+            if '!disagree' in c.body.lower():
                 b += 1
-            if '!undecided' in com.body.lower():
+            if '!undecided' in c.body.lower():
                 c += 1
-        edit_comment(com,a,b,c)
+        edit_comment(bot_comment,a,b,c)
     active_submissions = []
             
 def scan_comments_for_activity():
@@ -165,7 +165,7 @@ def main_loop():
         scan_comments_for_activity()
         recalculate_active_submissions()
         remove_downvoted()
-        time.sleep(60)
+        time.sleep(600)
     
         
 if __name__ == '__main__':
