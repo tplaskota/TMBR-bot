@@ -115,7 +115,9 @@ def clear_subreddit(sub):
     q.execute()
     
 def remove_downvoted():
-    for c in bot_name.get_comments(limit=None):
+	global reddit_client
+	bot_redditor = reddit_client.get_redditor(bot_name)
+    for c in bot_redditor.get_comments(limit=None):
         if c.score<0:
             c.delete()
 
@@ -164,7 +166,7 @@ def main_loop():
     while True:
         scan_comments_for_activity()
         recalculate_active_submissions()
-        remove_downvoted()
+        #remove_downvoted()
         time.sleep(600)
     
         
