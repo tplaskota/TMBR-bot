@@ -66,7 +66,7 @@ def already_has_bot_comment(submission_id, only_db=False):
         if only_db:
             return False
     sub = reddit_client.get_submission(submission_id=submission_id)
-    sub.replace_more_comments(limit=None,threshold=1)
+    sub.replace_more_comments(limit=None,threshold=0)
     comm = praw.helpers.flatten_tree(sub.comments)
     for c in comm:
         if c.author.name == bot_name:
@@ -89,11 +89,16 @@ def counter_table(a,b,c):
 def make_new_comment(_submission_id,a=0,b=0,c=0,TableName=CountingSubmission):
     global reddit_client
     sub = reddit_client.get_submission(submission_id=_submission_id)
-    response = response_head + counter_table(a,b,c) + response_tail
-    comment = sub.add_comment(response)
-    #sticky - requires login on mod
-    #comment.distinguish(sticky=True)
-    log_this_comment(comment)
+    print(_submission_id)
+    try:
+        response = response_head + counter_table(a,b,c) + response_tail
+        comment = sub.add_comment(response)
+        #sticky - requires login on mod
+        #comment.distinguish(sticky=True)
+        log_this_comment(comment)
+    except praw.errors.APIException as e:
+        return False
+    return True
 
 def edit_comment(comment,a=0,b=0,c=0):
     response = response_head + counter_table(a,b,c) + response_tail
@@ -108,7 +113,9 @@ def check_condition(c):
     return False
     
 def clear_subreddit(sub):
-    for c in reddit_client.get_comments(sub):
+    for c in reddit_client.get_comments(sub,limit=None):
+        if c.author == None: #deleted
+            continue
         if c.author.name==bot_name:
             c.delete()
     q = CountingSubmission.delete().where(str(CountingSubmission.subreddit).lower() == sub.lower())
@@ -124,30 +131,51 @@ def remove_downvoted():
 def recalculate_active_submissions():
     global reddit_client
     global active_submissions
-    a=0
-    b=0
-    c=0
     for id in active_submissions:
+        a=0
+        b=0
+        c=0
         sub = reddit_client.get_submission(submission_id=id)
-        sub.replace_more_comments(limit=None,threshold=1)
+        sub.replace_more_comments(limit=None,threshold=0)
         bot_comment = None
         flat_comments = praw.helpers.flatten_tree(sub.comments)
         for com in flat_comments:
+            if com.author == None: #comment deleted
+                continue
             if com.author.name == bot_name:
                 if bot_comment == None:
                     bot_comment = com
                     continue
                 else:
                     com.delete()
+                    continue
             if '!agree' in com.body.lower():
                 a += 1
+                continue
             if '!disagree' in com.body.lower():
                 b += 1
+                continue
             if '!undecided' in com.body.lower():
                 c += 1
-        if a+b+c>0 and bot_comment==None:
-            make_new_comment(com.link_id[3:])
-        edit_comment(bot_comment,a,b,c)
+                continue
+        if a+b+c>0:
+            if bot_comment==None:
+                make_new_comment(com.link_id[3:],a,b,c)
+                for com in flat_comments[::-1]:
+                    if com.author == None: #comment deleted
+                        continue
+                    if com.author.name == bot_name:
+                        bot_comment = com
+                        break
+                if bot_comment == None:
+                    has_comment = False
+                else:
+                    has_comment = True
+            else:
+                has_comment = True
+            if has_comment:
+                time.sleep(3)
+                edit_comment(bot_comment,a,b,c)
     active_submissions = []
                 
 def scan_comments_for_activity():
@@ -155,6 +183,8 @@ def scan_comments_for_activity():
     global active_submissions
     for c in reddit_client.get_comments('TMBR'):
         if '!agree' not in c.body.lower() and '!disagree' not in c.body.lower() and '!undecided' not in c.body.lower():
+            continue
+        if c.author == None: #comment deleted
             continue
         if c.author.name == bot_name:
             continue
@@ -170,16 +200,18 @@ def strip_stars(flair):
 def flag_all_submissions_for_activity():
     global reddit_client
     global active_submissions
-    #t = 137393280 #july 2013
-    #active_submissions = [a for a in reddit_client.get_subreddit('tmbr').search('timestamp:{0}..{1}'.format(int(t),int(time.time())),syntax='clousearch',limit=None)]
-    
+    t = 137393280 #july 2013
+    active_submissions = [a.id for a in reddit_client.get_subreddit('tmbr').search('timestamp:{0}..{1}'.format(int(t),int(time.time())),syntax='cloudsearch',limit=None,sort='new')]
+
     
 def main_loop():
     while True:
         scan_comments_for_activity()
+        #flag_all_submissions_for_activity()
         recalculate_active_submissions()
         #remove_downvoted()
         time.sleep(30) #temporary
+        #break
     
         
 if __name__ == '__main__':
