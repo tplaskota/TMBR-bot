@@ -66,8 +66,8 @@ def already_has_bot_comment(submission_id, only_db=False):
         if only_db:
             return False
     sub = reddit_client.get_submission(submission_id=submission_id)
-    sub.replace_more_comments(limit=None,treshold=1)
-    comm = praw.helper.flatten_tree(sub.comments)
+    sub.replace_more_comments(limit=None,threshold=1)
+    comm = praw.helpers.flatten_tree(sub.comments)
     for c in comm:
         if c.author.name == bot_name:
             log_this_comment(c)
@@ -120,7 +120,7 @@ def remove_downvoted():
     for c in bot_redditor.get_comments(limit=None):
         if c.score<0:
             c.delete()
-
+    
 def recalculate_active_submissions():
     global reddit_client
     global active_submissions
@@ -129,18 +129,18 @@ def recalculate_active_submissions():
     c=0
     for id in active_submissions:
         sub = reddit_client.get_submission(submission_id=id)
-        sub.replace_more_comments(limit=None,treshold=1)
+        sub.replace_more_comments(limit=None,threshold=1)
         bot_comment = None
-        flat_comments = praw.helper.flatten_tree(sub.comments)
+        flat_comments = praw.helpers.flatten_tree(sub.comments)
         for com in flat_comments:
-            if c.author.name == bot_name:
+            if com.author.name == bot_name:
                 bot_comment = com
                 continue
-            if '!agree' in c.body.lower():
+            if '!agree' in com.body.lower():
                 a += 1
-            if '!disagree' in c.body.lower():
+            if '!disagree' in com.body.lower():
                 b += 1
-            if '!undecided' in c.body.lower():
+            if '!undecided' in com.body.lower():
                 c += 1
         edit_comment(bot_comment,a,b,c)
     active_submissions = []
@@ -170,7 +170,7 @@ def main_loop():
         scan_comments_for_activity()
         recalculate_active_submissions()
         #remove_downvoted()
-        time.sleep(600)
+        time.sleep(30) #temporary
     
         
 if __name__ == '__main__':
