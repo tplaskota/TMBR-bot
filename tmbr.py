@@ -134,19 +134,25 @@ def recalculate_active_submissions():
         flat_comments = praw.helpers.flatten_tree(sub.comments)
         for com in flat_comments:
             if com.author.name == bot_name:
-                bot_comment = com
-                continue
+                if bot_comment == None:
+                    bot_comment = com
+                    continue
+                else:
+                    com.delete()
             if '!agree' in com.body.lower():
                 a += 1
             if '!disagree' in com.body.lower():
                 b += 1
             if '!undecided' in com.body.lower():
                 c += 1
+        if a+b+c>0 and bot_comment==None:
+            make_new_comment(c.link_id[3:])
         edit_comment(bot_comment,a,b,c)
     active_submissions = []
             
 def scan_comments_for_activity():
     global reddit_client
+    global active_submissions
     for c in reddit_client.get_comments('TMBR'):
         if '!agree' not in c.body.lower() and '!disagree' not in c.body.lower() and '!undecided' not in c.body.lower():
             continue
@@ -161,8 +167,11 @@ def strip_stars(flair):
     flair_text = flair['flair_text']
     #if u'\u2606' in flair_text or u'\2605' in flair_text:
     
-#def repopulate_database():
-    
+def flag_all_submissions_for_activity():
+    global reddit_client
+    global active_submissions
+    #t = 137393280 #july 2013
+    #active_submissions = [a for a in reddit_client.get_subreddit('tmbr').search('timestamp:{0}..{1}'.format(int(t),int(time.time())),syntax='clousearch',limit=None)]
     
     
 def main_loop():
