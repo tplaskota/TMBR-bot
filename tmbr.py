@@ -146,10 +146,10 @@ def recalculate_active_submissions():
             if '!undecided' in com.body.lower():
                 c += 1
         if a+b+c>0 and bot_comment==None:
-            make_new_comment(c.link_id[3:])
+            make_new_comment(com.link_id[3:])
         edit_comment(bot_comment,a,b,c)
     active_submissions = []
-            
+                
 def scan_comments_for_activity():
     global reddit_client
     global active_submissions
