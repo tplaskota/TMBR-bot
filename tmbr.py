@@ -115,8 +115,8 @@ def clear_subreddit(sub):
     q.execute()
     
 def remove_downvoted():
-	global reddit_client
-	bot_redditor = reddit_client.get_redditor(bot_name)
+    global reddit_client
+    bot_redditor = reddit_client.get_redditor(bot_name)
     for c in bot_redditor.get_comments(limit=None):
         if c.score<0:
             c.delete()
@@ -160,6 +160,9 @@ def strip_stars(flair):
     user = flair['user']
     flair_text = flair['flair_text']
     #if u'\u2606' in flair_text or u'\2605' in flair_text:
+    
+#def repopulate_database():
+    
     
     
 def main_loop():
