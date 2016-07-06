@@ -23,6 +23,7 @@ u'\u2738',u'\u2742',u'\u2739']
 
 response_head = ""
 response_tail = "\n\n-------------------------------------------------\n\n^^I ^^am ^^a ^^bot. ^^You ^^can ^^complain ^^to ^^my ^^master ^^/u/Terdol ^^or ^^mods ^^at ^^/r/TMBR"
+bot_commands = ["!agreewithop","!disagreewithop","!undecided"]
         
 class CountingSubmission(Model):
     submission_id = CharField()
@@ -83,7 +84,7 @@ def counter_table(a,b,c):
     result += 'disagree  |'
     result += ' '*(10-len(str(b)))+str(b)+'|\n'
     result += 'undecided |'
-    result += ' '*(10-len(str(b)))+str(c)+'|\n'
+    result += ' '*(10-len(str(c)))+str(c)+'|\n'
     return result
 
 def make_new_comment(_submission_id,a=0,b=0,c=0,TableName=CountingSubmission):
@@ -94,7 +95,7 @@ def make_new_comment(_submission_id,a=0,b=0,c=0,TableName=CountingSubmission):
         response = response_head + counter_table(a,b,c) + response_tail
         comment = sub.add_comment(response)
         #sticky - requires login on mod
-        #comment.distinguish(sticky=True)
+        comment.distinguish(sticky=True)
         log_this_comment(comment)
     except praw.errors.APIException as e:
         return False
@@ -132,9 +133,8 @@ def recalculate_active_submissions():
     global reddit_client
     global active_submissions
     for id in active_submissions:
-        a=0
-        b=0
-        c=0
+        votes=[[],[],[],]
+        banned_on_this_submission = []
         sub = reddit_client.get_submission(submission_id=id)
         sub.replace_more_comments(limit=None,threshold=0)
         bot_comment = None
@@ -149,19 +149,35 @@ def recalculate_active_submissions():
                 else:
                     com.delete()
                     continue
-            if '!agree' in com.body.lower():
-                a += 1
+            if com.author.name in banned_on_this_submission:
                 continue
-            if '!disagree' in com.body.lower():
-                b += 1
-                continue
-            if '!undecided' in com.body.lower():
-                c += 1
-                continue
-        if a+b+c>0:
+            command_index = None
+            for i,command in enumerate(bot_commands):
+                if command in com.body.lower():
+                    if command_index != None:
+                        command_index = None
+                        break
+                    else:
+                        command_index = i
+            if command_index != None:
+                author = com.author.name
+                ap = True
+                for i,command in enumerate(bot_commands):
+                    if author in votes[i] and i==command_index:
+                        ap = False
+                    if author in votes[i] and i!=command_index:
+                        ap = False
+                        votes[i].remove(author)
+                        banned_on_this_submission.append(author)
+                        break
+                if ap:
+                    votes[command_index].append(author)
+                        
+                    
+        if sum([len(a) for a in votes])>0:
             if bot_comment==None:
-                make_new_comment(com.link_id[3:],a,b,c)
-                for com in flat_comments[::-1]:
+                make_new_comment(com.link_id[3:],*[len(a) for a in votes])
+                for com in flat_comments:
                     if com.author == None: #comment deleted
                         continue
                     if com.author.name == bot_name:
@@ -175,14 +191,14 @@ def recalculate_active_submissions():
                 has_comment = True
             if has_comment:
                 time.sleep(3)
-                edit_comment(bot_comment,a,b,c)
+                edit_comment(bot_comment,*[len(a) for a in votes])
     active_submissions = []
                 
 def scan_comments_for_activity():
     global reddit_client
     global active_submissions
     for c in reddit_client.get_comments('TMBR'):
-        if '!agree' not in c.body.lower() and '!disagree' not in c.body.lower() and '!undecided' not in c.body.lower():
+        if 1 != len([1 for command in bot_commands if command in c.body.lower()]): #check agree/disagre/undecided, only one of those can be present
             continue
         if c.author == None: #comment deleted
             continue
