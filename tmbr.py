@@ -226,7 +226,7 @@ def main_loop():
         #flag_all_submissions_for_activity()
         recalculate_active_submissions()
         #remove_downvoted()
-        time.sleep(30) #temporary
+        time.sleep(900)
         #break
     
         
