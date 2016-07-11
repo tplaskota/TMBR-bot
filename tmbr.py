@@ -135,10 +135,25 @@ def recalculate_active_submissions():
     for id in active_submissions:
         votes=[[],[],[],]
         banned_on_this_submission = []
-        sub = reddit_client.get_submission(submission_id=id)
-        sub.replace_more_comments(limit=None,threshold=0)
         bot_comment = None
-        flat_comments = praw.helpers.flatten_tree(sub.comments)
+        one_bot_comment_flag = False
+        while not one_bot_comment_flag:
+            sub = reddit_client.get_submission(submission_id=id)
+            sub.replace_more_comments(limit=None,threshold=0)
+            flat_comments = praw.helpers.flatten_tree(sub.comments)
+            bot_comment = [com for com in flat_comments if com.author != None and com.author.name.lower() == bot_name.lower()]
+            if bot_comment == None:
+                raise Exception("LOLWUT")
+            elif len(bot_comment) > 1:
+                for com in bot_comment:
+                    if not com.stickied:
+                        com.delete()
+            elif len(bot_comment) == 1:
+                one_bot_comment_flag = True
+            elif len(bot_comment) == 0:
+                make_new_comment(id)
+        
+            
         for com in flat_comments:
             if com.author == None: #comment deleted
                 continue
@@ -226,7 +241,7 @@ def main_loop():
         #flag_all_submissions_for_activity()
         recalculate_active_submissions()
         #remove_downvoted()
-        time.sleep(900)
+        time.sleep(30) #temporary
         #break
     
         
