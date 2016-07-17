@@ -162,7 +162,7 @@ def recalculate_active_submissions():
                     bot_comment = com
                     continue
                 else:
-                    com.delete()
+                    #com.delete()
                     continue
             if com.author.name in banned_on_this_submission:
                 continue
@@ -206,6 +206,8 @@ def recalculate_active_submissions():
                 has_comment = True
             if has_comment:
                 time.sleep(3)
+                if type(bot_comment) is list:
+                    bot_comment=bot_comment[0]
                 edit_comment(bot_comment,*[len(a) for a in votes])
     active_submissions = []
                 
