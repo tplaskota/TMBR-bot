@@ -14,6 +14,8 @@ reddit_client = praw.Reddit(user_agent=user_agent)
 oauth_helper = PrawOAuth2Mini(reddit_client,app_key=app_key,app_secret=app_secret,access_token=access_token,scopes=scopes,refresh_token=refresh_token)
 reddit_client.login(bot_name,bot_password,disable_warning=True)
 db = SqliteDatabase('db/tmbr.db')
+moderator_list = [mod.name for mod in modreddit_client.get_subreddit('tmbr').get_moderators()]
+tmbr_subreddit = reddit_client.get_subreddit('tmbr')
 counting_submissions = []
 last_checked_comment = []
 active_submissions = []
@@ -86,13 +88,25 @@ def counter_table(a,b,c):
     result += 'undecided |'
     result += ' '*(10-len(str(c)))+str(c)+'|\n'
     return result
+    
+def debate_rules(tag='Debate'):
+    result = '\n\n'
+    result += 'Hello, this thread is tagged as "'+tag+'"\n\n'
+    result += 'Quick reminder of posting rules in debate threads:\n\n'
+    result += '* Redditors with flair might comment freely, but are unable to add their votes to automatic poll.\n'
+    result += '* Redditors without flair can only add their votes to automatic poll via usuall commands, but can not comment anything else.\n\n'
+    result += 'In case of breaking these restrictions comments will be removed without warning. For more information visit (here)['+debate_rules_link+'].\n'
+    return result
 
 def make_new_comment(_submission_id,a=0,b=0,c=0,TableName=CountingSubmission):
     global reddit_client
     sub = reddit_client.get_submission(submission_id=_submission_id)
     print(_submission_id)
     try:
-        response = response_head + counter_table(a,b,c) + response_tail
+        response = response_head + counter_table(a,b,c)
+        if 'debate' in sub.link_flair_text.lower():
+            response += debate_rules(sub.link_flair_text)
+        response += response_tail
         comment = sub.add_comment(response)
         #sticky - requires login on mod
         comment.distinguish(sticky=True)
@@ -101,17 +115,12 @@ def make_new_comment(_submission_id,a=0,b=0,c=0,TableName=CountingSubmission):
         return False
     return True
 
-def edit_comment(comment,a=0,b=0,c=0):
-    response = response_head + counter_table(a,b,c) + response_tail
+def edit_comment(comment,b_debate=False,a=0,b=0,c=0):
+    response = response_head + counter_table(a,b,c)
+    if b_debate:
+        response += debate_rules(sub.link_flair_text)
+    response += response_tail
     comment.edit(response)
-    
-def check_condition(c):
-    if "meme" in c.body.lower():
-        for rep in c.replies:
-            if rep.author.name==bot_name:
-                return False
-        return True
-    return False
     
 def clear_subreddit(sub):
     for c in reddit_client.get_comments(sub,limit=None):
@@ -137,8 +146,10 @@ def recalculate_active_submissions():
         banned_on_this_submission = []
         bot_comment = None
         one_bot_comment_flag = False
+        b_debate_submission = False
         while not one_bot_comment_flag:
             sub = reddit_client.get_submission(submission_id=id)
+            b_debate_submission = 'debate' in sub.link_flair_text.lower()
             sub.replace_more_comments(limit=None,threshold=0)
             flat_comments = praw.helpers.flatten_tree(sub.comments)
             bot_comment = [com for com in flat_comments if com.author != None and com.author.name.lower() == bot_name.lower()]
@@ -208,7 +219,7 @@ def recalculate_active_submissions():
                 time.sleep(3)
                 if type(bot_comment) is list:
                     bot_comment=bot_comment[0]
-                edit_comment(bot_comment,*[len(a) for a in votes])
+                edit_comment(bot_comment, b_debate_submission, *[len(a) for a in votes])
     active_submissions = []
                 
 def scan_comments_for_activity():
@@ -237,13 +248,40 @@ def flag_all_submissions_for_activity():
     active_submissions = [a.id for a in reddit_client.get_subreddit('tmbr').search('timestamp:{0}..{1}'.format(int(t),int(time.time())),syntax='cloudsearch',limit=None,sort='new')]
 
     
+def moderate_debates():
+    global reddit_client
+    global active_submissions
+    debate_submissions = [a for a in reddit_client.get_subreddit('tmbr').get_new(limit=1000) if 'debate' in a.link_flair_text.lower()]
+    debate_submissions.sort(key=lambda x:x.created_utc, reverse=True)
+    for subm in debate_submissions:
+        active_submissions.append(subm.id)
+    for d_sub in debate_submissions:
+        d_sub.replace_more_comments(limit=None,threshold=0)
+        flat_comments = praw.helpers.flatten_tree(sub.comments)
+        for com in flat_comments:
+            if com.author == None: #deleted
+                continue
+            if com.author.name in moderator_list: #moderators including bot itself
+                continue
+            if tmbr_subreddit.get_flair(com.author)['flair_text'] != None:
+                #flaired user
+                if 0 < len([1 for command in bot_commands if command in com.body.lower()]):
+                    com.remove()
+            else:
+                #not-flaired user
+                if 1 != len([1 for command in bot_commands if command == com.body.lower()]):
+                    com.remove()
+        
+        
+    
 def main_loop():
     while True:
+        moderate_debates()
         scan_comments_for_activity()
         #flag_all_submissions_for_activity()
         recalculate_active_submissions()
         #remove_downvoted()
-        time.sleep(30) #temporary
+        time.sleep(30)
         #break
     
         
