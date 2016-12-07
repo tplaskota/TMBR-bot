@@ -14,7 +14,7 @@ reddit_client = praw.Reddit(user_agent=user_agent)
 oauth_helper = PrawOAuth2Mini(reddit_client,app_key=app_key,app_secret=app_secret,access_token=access_token,scopes=scopes,refresh_token=refresh_token)
 reddit_client.login(bot_name,bot_password,disable_warning=True)
 db = SqliteDatabase('db/tmbr.db')
-moderator_list = [mod.name for mod in modreddit_client.get_subreddit('tmbr').get_moderators()]
+moderator_list = [mod.name for mod in reddit_client.get_subreddit('tmbr').get_moderators()]
 tmbr_subreddit = reddit_client.get_subreddit('tmbr')
 counting_submissions = []
 last_checked_comment = []
@@ -104,7 +104,7 @@ def make_new_comment(_submission_id,a=0,b=0,c=0,TableName=CountingSubmission):
     print(_submission_id)
     try:
         response = response_head + counter_table(a,b,c)
-        if 'debate' in sub.link_flair_text.lower():
+        if sub.link_flair_text != None and 'debate' in sub.link_flair_text.lower():
             response += debate_rules(sub.link_flair_text)
         response += response_tail
         comment = sub.add_comment(response)
@@ -149,7 +149,7 @@ def recalculate_active_submissions():
         b_debate_submission = False
         while not one_bot_comment_flag:
             sub = reddit_client.get_submission(submission_id=id)
-            b_debate_submission = 'debate' in sub.link_flair_text.lower()
+            b_debate_submission = sub.link_flair_text != None and'debate' in sub.link_flair_text.lower()
             sub.replace_more_comments(limit=None,threshold=0)
             flat_comments = praw.helpers.flatten_tree(sub.comments)
             bot_comment = [com for com in flat_comments if com.author != None and com.author.name.lower() == bot_name.lower()]
@@ -232,8 +232,6 @@ def scan_comments_for_activity():
             continue
         if c.author.name == bot_name:
             continue
-        if not already_has_bot_comment(c.link_id[3:]):
-            make_new_comment(c.link_id[3:])
         active_submissions.append(c.link_id[3:])
 
 def strip_stars(flair):
@@ -251,13 +249,14 @@ def flag_all_submissions_for_activity():
 def moderate_debates():
     global reddit_client
     global active_submissions
-    debate_submissions = [a for a in reddit_client.get_subreddit('tmbr').get_new(limit=1000) if 'debate' in a.link_flair_text.lower()]
+    debate_submissions = [a for a in reddit_client.get_subreddit('tmbr').get_new(limit=1000) if a.link_flair_text != None and 'debate' in a.link_flair_text.lower()]
     debate_submissions.sort(key=lambda x:x.created_utc, reverse=True)
     for subm in debate_submissions:
         active_submissions.append(subm.id)
     for d_sub in debate_submissions:
+        print("Debate submission moderation subscribed:",d_sub.title)
         d_sub.replace_more_comments(limit=None,threshold=0)
-        flat_comments = praw.helpers.flatten_tree(sub.comments)
+        flat_comments = praw.helpers.flatten_tree(d_sub.comments)
         for com in flat_comments:
             if com.author == None: #deleted
                 continue
