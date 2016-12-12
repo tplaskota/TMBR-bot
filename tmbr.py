@@ -149,7 +149,7 @@ def recalculate_active_submissions():
         b_debate_submission = False
         while not one_bot_comment_flag:
             sub = reddit_client.get_submission(submission_id=id)
-            b_debate_submission = sub.link_flair_text != None and'debate' in sub.link_flair_text.lower()
+            b_debate_submission = sub.link_flair_text != None and 'debate' in sub.link_flair_text.lower()
             sub.replace_more_comments(limit=None,threshold=0)
             flat_comments = praw.helpers.flatten_tree(sub.comments)
             bot_comment = [com for com in flat_comments if com.author != None and com.author.name.lower() == bot_name.lower()]
@@ -233,6 +233,7 @@ def scan_comments_for_activity():
         if c.author.name == bot_name:
             continue
         active_submissions.append(c.link_id[3:])
+    active_submissions = list(set(active_submissions))
 
 def strip_stars(flair):
     user = flair['user']
