@@ -1,0 +1,2 @@
+from tmbr import *
+print({a:len([1 for flair in reddit_client.get_subreddit('tmbr').get_flair_list(limit=1000) if a.lower() in flair['flair_text'].lower()]) for a in ['c-c-combobreaker','philosophical raptor']})"
