@@ -101,11 +101,11 @@ def debate_rules(tag='Debate'):
 
 def can_claim_flair_text(user_name = None):
     result = '\n\n'
-    result += "Congratulations"
+    result += "**Congratulations"
     if user_name:
          result += " /u/"+user_name
-    result += " on reaching 50 comment mark!\n\n"
-    result += " You can contact modmail for your flair!\n\n"
+    result += " on reaching 50 comment mark!**\n\n"
+    result += "**You can contact us on [Discord](http://discord.gg/nVSr9C9) or using modmail to claim your flair!**\n\n"
     return result
 
 def make_new_comment(_submission_id,a=0,b=0,c=0,TableName=CountingSubmission):
