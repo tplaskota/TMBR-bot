@@ -101,11 +101,11 @@ def debate_rules(tag='Debate'):
 
 def can_claim_flair_text(user_name = None):
     result = '\n\n'
-    result += "**Congratulations"
+    result += "Congratulations"
     if user_name:
          result += " /u/"+user_name
-    result += " on reaching 50 comment mark!**\n\n"
-    result += "**You can contact us on [Discord](http://discord.gg/nVSr9C9) or using modmail to claim your flair!**\n\n"
+    result += " on reaching 50 comment mark!\n\n"
+    result += " You can contact modmail for your flair!\n\n"
     return result
 
 def make_new_comment(_submission_id,a=0,b=0,c=0,TableName=CountingSubmission):
@@ -254,7 +254,7 @@ def recalculate_active_submissions():
 def scan_comments_for_activity():
     global reddit_client
     global active_submissions
-    for c in reddit_client.get_comments('TMBR', limit=100):
+    for c in reddit_client.get_comments('TMBR', limit=1000):
         if 1 != len([1 for command in bot_commands if command in c.body.lower()]): #check agree/disagre/undecided, only one of those can be present
             continue
         if c.author == None: #comment deleted
@@ -294,13 +294,13 @@ def moderate_debates():
                 continue
             if tmbr_subreddit.get_flair(com.author)['flair_text'] != None:
                 #flaired user
-                if 0 < len([1 for command in bot_commands if command in com.body.lower()]):
+                if 0 < len([1 for command in bot_commands if command in com.body.strip().lower()]):
                     if com.banned_by != None:
                         continue
                     com.remove()
             else:
                 #not-flaired user
-                if 1 != len([1 for command in bot_commands if command == com.body.lower()]):
+                if 1 != len([1 for command in bot_commands if command == com.body.strip().lower()]):
                     if com.banned_by != None:
                         continue
                     com.remove()
