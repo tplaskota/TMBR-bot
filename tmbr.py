@@ -150,7 +150,7 @@ def edit_comment(comment,a=0,b=0,c=0,d=0,b_debate=False, can_claim_flair=None):
     if b_debate:
         #response = response_head + debate_counter_table(a,b)
         response += debate_rules()
-    else:
+    #else:
         #response = response_head + counter_table(a,b,c,d)
     if not b_debate and can_claim_flair:
         print("user /u/"+can_claim_flair+" has reached 50 comments for the first time, adding information to poll")
