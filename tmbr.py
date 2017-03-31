@@ -25,7 +25,8 @@ u'\u2738',u'\u2742',u'\u2739']
 
 response_head = ""
 response_tail = "\n\n-------------------------------------------------\n\n^^I ^^am ^^a ^^bot. ^^You ^^can ^^complain ^^to ^^my ^^master ^^/u/Terdol ^^or ^^mods ^^at ^^/r/TMBR"
-bot_commands = ["!agreewithop","!disagreewithop","!undecided"]
+bot_commands = ["!agreewithop","!disagreewithop","!concurwithop","!undecided"]
+debate_commands = ["!pointforcombobreakers","!pointforphilosophicalraptors"]
 debate_rules_link = "https://www.reddit.com/r/TMBR/comments/5i2q75/temporarynew_feature_test_i_believe_rtmbr_is/"
         
 class CountingSubmission(Model):
@@ -78,7 +79,7 @@ def already_has_bot_comment(submission_id, only_db=False):
             break
         
         
-def counter_table(a,b,c):
+def counter_table(a,b,c,d):
     result = ''
     result += 'COUNTER   |          |\n'
     result += '----------|----------|\n'
@@ -86,14 +87,28 @@ def counter_table(a,b,c):
     result += ' '*(10-len(str(a)))+str(a)+'|\n'
     result += 'disagree  |'
     result += ' '*(10-len(str(b)))+str(b)+'|\n'
+    if c > 0:
+        result += 'concur    |'
+        result += ' '*(10-len(str(c)))+str(c)+'|\n' #kwargs['concur']
     result += 'undecided |'
-    result += ' '*(10-len(str(c)))+str(c)+'|\n'
+    result += ' '*(10-len(str(d)))+str(d)+'|\n'
+    return result
+    
+def debate_counter_table(a,b):
+    result = ''
+    result += 'DEBATE COUNTER           |          |\n'
+    result += '-------------------------|----------|\n'
+    result += 'PhilosophicalRaptors     |'
+    result += ' '*(10-len(str(a)))+str(a)+'|\n'
+    result += 'C-C-ComboBreakers        |'
+    result += ' '*(10-len(str(b)))+str(b)+'|\n'
     return result
     
 def debate_rules(tag='Debate'):
     result = '\n\n'
     result += 'Hello, this thread is tagged as "'+tag+'"\n\n'
     result += 'Quick reminder of posting rules in debate threads:\n\n'
+    #result += '* Voting in debates is done with "!PointForComboBreakers" or "!PhilosophicalRaptors".\n'
     result += '* Redditors with flair might comment freely, but are unable to add their votes to automatic poll.\n'
     result += '* Redditors without flair can only add their votes to automatic poll via usuall commands, but can not comment anything else.\n\n'
     result += 'In case of breaking these restrictions comments will be removed without warning. For more information visit [here]('+debate_rules_link+').\n'
@@ -108,12 +123,12 @@ def can_claim_flair_text(user_name = None):
     result += " You can contact modmail for your flair!\n\n"
     return result
 
-def make_new_comment(_submission_id,a=0,b=0,c=0,TableName=CountingSubmission):
+def make_new_comment(_submission_id,a=0,b=0,c=0,d=0,TableName=CountingSubmission):
     global reddit_client
     sub = reddit_client.get_submission(submission_id=_submission_id)
     print('attempting to create new comment in submission '+_submission_id)
     try:
-        response = response_head + counter_table(a,b,c)
+        response = response_head + counter_table(a,b,c,d) #kwargs['concur']
         if sub.link_flair_text != None and 'debate' in sub.link_flair_text.lower():
             response += debate_rules(sub.link_flair_text)
         response += response_tail
@@ -129,12 +144,15 @@ def make_new_comment(_submission_id,a=0,b=0,c=0,TableName=CountingSubmission):
         return False
     return True
 
-def edit_comment(comment,a=0,b=0,c=0,b_debate=False, can_claim_flair=None):
-    print("editing comment in submission "+comment.link_id[3:]+' with votes: '+str(a)+', '+str(b)+', '+str(c))
-    response = response_head + counter_table(a,b,c)
+def edit_comment(comment,a=0,b=0,c=0,d=0,b_debate=False, can_claim_flair=None):
+    print("editing comment in submission "+comment.link_id[3:]+' with votes: '+str(a)+', '+str(b)+', '+str(c)+', '+str(d))
+    response = response_head + counter_table(a,b,c,d)
     if b_debate:
+        #response = response_head + debate_counter_table(a,b)
         response += debate_rules()
-    elif can_claim_flair:
+    else:
+        #response = response_head + counter_table(a,b,c,d)
+    if not b_debate and can_claim_flair:
         print("user /u/"+can_claim_flair+" has reached 50 comments for the first time, adding information to poll")
         response += can_claim_flair_text(can_claim_flair)
     response += response_tail
@@ -161,7 +179,7 @@ def recalculate_active_submissions():
     global active_submissions
     print('Current active submissions:' + ', '.join(active_submissions))
     for id in active_submissions:
-        votes=[[],[],[],]
+        votes=[[],[],[],[],]
         banned_on_this_submission = []
         bot_comment = None
         one_bot_comment_flag = False
@@ -255,7 +273,7 @@ def scan_comments_for_activity():
     global reddit_client
     global active_submissions
     for c in reddit_client.get_comments('TMBR', limit=1000):
-        if 1 != len([1 for command in bot_commands if command in c.body.lower()]): #check agree/disagre/undecided, only one of those can be present
+        if 1 != len([1 for command in bot_commands if command in c.body.lower()]): #check agree/concur/disagree/undecided, only one of those can be present
             continue
         if c.author == None: #comment deleted
             continue
